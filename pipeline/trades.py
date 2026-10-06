@@ -154,3 +154,22 @@ TRADES = [
          why={"warn": "A closing site will be empty space soon.",
               "wrecking": "A teardown means a lot is about to be rebuilt or sold."}),
 ]
+
+# How a visitor would say what they do, in their own words. The filter row reads as answers
+# to "What do you sell?" rather than as industry names (Aidan, 2026-10-06).
+ME = {
+    "bookkeeping": "I keep the books", "cpa": "I do taxes and audits", "payroll": "I run payroll",
+    "insurance": "I sell business insurance", "banks": "I bank businesses", "credit-unions": "I run a credit union",
+    "restaurant-equipment": "I sell kitchen gear and POS", "restaurant-supply": "I supply restaurants",
+    "food-distributors": "I deliver food to kitchens", "breweries": "I brew beer for bars",
+    "linen": "I do linen and laundry", "pest-control": "I do pest control", "printing": "I print menus and signs",
+    "signs": "I make signs", "cleaning": "I clean businesses", "security-systems": "I install cameras and alarms",
+    "internet": "I sell internet and phones", "it-services": "I set up computers and networks",
+    "waste": "I haul trash and recycling", "movers": "I move offices", "marketing": "I market new businesses",
+    "scrap": "I buy scrap metal", "salvage": "I salvage fixtures and materials", "remediation": "I remove asbestos",
+    "site-prep": "I grade and excavate lots", "security-guards": "I provide security guards",
+    "staffing": "I staff businesses", "placement": "I place job seekers", "hr-consulting": "I do HR and outplacement",
+    "used-equipment": "I buy used machinery", "cre-brokers": "I broker commercial space",
+}
+for _t in TRADES:
+    _t["me"] = ME.get(_t["slug"], _t["name"])

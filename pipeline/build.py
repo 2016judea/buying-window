@@ -371,7 +371,7 @@ def main() -> None:
             continue
         slug = t["slug"]
         c = cbp.get(t["naics"])
-        trades.append(dict(slug=slug, name=t["name"], naics=t["naics"], group=t["group"],
+        trades.append(dict(slug=slug, name=t["name"], me=t["me"], naics=t["naics"], group=t["group"],
                            metro_firms=c["businesses_now"] if c else None,
                            why={ev: t["why"].get(ev, "") for ev, _ in t["triggers"]},
                            triggers=[[ev, segs] for ev, segs in t["triggers"]], count=len(rows)))

@@ -38,7 +38,7 @@ html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 Inter,sy
 .c{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:15px;padding:9px 14px;border-radius:999px;cursor:pointer;min-height:44px;white-space:nowrap}
 .c[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .c.cat{font-weight:600}
-.c.sub[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.c[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .c b{font-weight:600;opacity:.7;margin-left:6px}
 .hero{padding:18px 0 6px}
 .big{font-size:44px;font-weight:700;line-height:1;letter-spacing:-.03em}
@@ -64,6 +64,19 @@ details{margin:8px 0 0;font-size:14px;color:var(--muted)}
 summary{cursor:pointer;color:var(--accent);font-weight:600;min-height:32px;display:flex;align-items:center}
 details p{margin:4px 0 6px;overflow-wrap:anywhere}
 details a{color:var(--accent)}
+.me{display:inline-flex;align-items:baseline;gap:8px;border:0;border-bottom:3px solid var(--accent);background:none;color:var(--ink);font:inherit;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.15;padding:0 0 2px;cursor:pointer;text-align:left}
+.caret{font-size:18px;color:var(--accent)}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10;display:flex;align-items:flex-end;justify-content:center}
+.sheet[hidden]{display:none}
+.panel{background:var(--bg);width:100%;max-width:760px;max-height:85vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:8px 16px 24px}
+.ph{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--bg);padding:8px 0}
+.x{border:0;background:none;color:var(--ink);font-size:28px;min-width:44px;min-height:44px;cursor:pointer}
+.o{display:flex;justify-content:space-between;gap:12px;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font:inherit;font-size:17px;padding:14px 4px;min-height:52px;cursor:pointer}
+.o b{color:var(--muted);font-weight:600}
+.o[aria-current=true]{color:var(--accent);font-weight:700}
+.story{font-size:16px;margin:10px 0 0}
+.foryou{font-size:15px;margin:10px 0 0;padding:10px 12px;background:var(--chip);border-radius:10px}
+.foryou strong{color:var(--accent)}
 footer{color:var(--muted);font-size:13px;margin-top:28px;border-top:1px solid var(--line);padding-top:14px}
 footer a{color:inherit}
 </style>
@@ -71,20 +84,18 @@ footer a{color:inherit}
 <body>
 <div class="wrap">
   <div class="brand">BUYING WINDOW · MINNEAPOLIS</div>
-  <nav class="nav" aria-label="Pick what you sell">
-    <p class="ask">What do you sell?</p>
-    <div class="chips" id="cats"></div>
-    <div class="chips" id="subs"></div>
-  </nav>
   <section class="hero">
-    <p class="ask" id="eyebrow"></p>
-    <div class="big" id="n"></div>
+    <p class="ask">What do you sell?</p>
+    <button class="me" id="me" aria-haspopup="dialog"><span id="metext"></span> <span class="caret">&#9662;</span></button>
     <h1 id="headline"></h1>
     <p class="sub2" id="sub2"></p>
     <a class="dl" id="csv" download>Download the list (CSV)</a>
   </section>
-  <div class="filters" id="filters"></div>
   <div id="rows"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="What do you sell?" hidden>
+    <div class="panel"><div class="ph"><b>What do you sell?</b><button class="x" id="x" aria-label="Close">&times;</button></div>
+    <div id="opts"></div></div>
+  </div>
   <footer id="foot"></footer>
 </div>
 <script>
@@ -111,6 +122,30 @@ footer a{color:inherit}
     if (e.event === 'buildout' && e.kind === 'Remodel') return `${e.type} remodeling`;
     return `New ${lc(e.type)}`;
   }
+  // the facts of THIS lead, in one or two plain sentences
+  function story(e){
+    const on = fmt(e.date), at = e.address ? ` at ${e.address}` : '';
+    const a = lc(title(e)).replace(/^new /, 'new ');
+    const it = e.name || `A ${a}`;
+    switch (e.event){
+      case 'buildout': {
+        const what = e.type === 'Commercial space' ? (e.kind === 'Remodel' ? 'A business is remodeling' : 'A new business is moving in')
+          : e.kind === 'Remodel' ? `${e.name || 'A ' + lc(e.type)} is remodeling` : `${e.name || 'A new ' + lc(e.type)} is moving in`;
+        if (e.stage.startsWith('Construction done')) return `${what}${at}. Construction wrapped up ${on}, so the doors open any day now.`;
+        if (e.stage.startsWith('Final')) return `${what}${at}. The space is at final inspection, so opening is weeks away.`;
+        return `${what}${at}. The permit was issued ${on} and construction is underway, so vendors get picked before opening day.`;
+      }
+      case 'liquor': return e.stage.startsWith('License pending')
+        ? `${it} applied for a brand-new liquor license and is not open yet.`
+        : `${it} got a brand-new liquor license on ${on}. That usually means a new place or new owners.`;
+      case 'first_inspection': return `${it} had its first-ever city health inspection on ${on}. It just opened its doors.`;
+      case 'wrecking': return e.stage === 'Torn down'
+        ? `A commercial building${at} was torn down ${on}. The lot is about to become something new.`
+        : `A commercial building${at} has a wrecking permit from ${on} and is still standing.`;
+      case 'warn': return `${e.name} told the state it is ${e.stage.startsWith('Closing') ? 'closing a site' : 'laying people off'}${e.city ? ' in ' + e.city : ''} (notice dated ${on}). ${e.detail}.`;
+    }
+    return '';
+  }
   function askFor(e){
     if (e.event === 'buildout' && e.by) return `<p class="ask2">Who to ask: <b>${esc(e.by)}</b> filed the permit and knows the owner.</p>`;
     if (e.event === 'wrecking' && e.by) return `<p class="ask2">Who to ask: <b>${esc(e.by)}</b> is doing the teardown.</p>`;
@@ -122,35 +157,23 @@ footer a{color:inherit}
     `Updated ${fmt(D.built)} from public records: Minneapolis building permits, liquor licenses and food inspections, and Minnesota layoff notices. ` +
     `Free. No sign-up. <a href="https://github.com/2016judea/buying-window">How it works</a>.`;
 
-  const groups = {};
-  D.trades.forEach(t => (groups[t.group] = groups[t.group] || []).push(t));
-  let filter = 'all';
+  // one row of trades, most leads first; the open one leads the row
+  const ORDER = [...D.trades].sort((a, b) => b.count - a.count);
 
   function draw(t){
     // categories, then the trades inside the open one
-    document.getElementById('cats').innerHTML = Object.keys(groups).map(g =>
-      `<button class="c cat" data-g="${esc(g)}" aria-pressed="${g === t.group}">${esc(g)}</button>`).join('');
-    document.getElementById('subs').innerHTML = groups[t.group].map(x =>
-      `<button class="c sub" data-slug="${x.slug}" aria-pressed="${x.slug === t.slug}">${esc(x.name)}<b>${x.count}</b></button>`).join('');
-    document.querySelector('#cats [aria-pressed=true]')?.scrollIntoView({inline:'nearest', block:'nearest'});
-    document.querySelector('#subs [aria-pressed=true]')?.scrollIntoView({inline:'nearest', block:'nearest'});
+    document.getElementById('metext').textContent = t.me + '.';
+    document.getElementById('opts').innerHTML = ORDER.map(x =>
+      `<button class="o" data-slug="${x.slug}" aria-current="${x.slug === t.slug}">${esc(x.me)}<b>${x.count}</b></button>`).join('');
 
     const rows = E.filter(e => matches(t, e));
     const fresh = rows.filter(e => e.date >= weekAgo).length;
-    document.getElementById('n').textContent = rows.length;
-    document.getElementById('headline').textContent = `Minneapolis places that may need you right now`;
-    document.getElementById('eyebrow').textContent = `For ${t.name.replace(/ \(.*\)$/, '')}`;
+    document.getElementById('headline').textContent = `${rows.length} Minneapolis places may need you right now.`;
     document.getElementById('sub2').textContent =
       `Each one changed in the last ${D.window_days} days. That is when a business picks new vendors.` + (fresh ? ` ${fresh} new this week.` : '');
     document.getElementById('csv').href = `data/${t.slug}.csv`;
 
-    const kinds = t.triggers.map(([ev]) => ev).filter(k => rows.some(e => e.event === k));
-    if (!kinds.includes(filter)) filter = 'all';
-    document.getElementById('filters').innerHTML = kinds.length > 1 ?
-      [['all', `All ${rows.length}`], ...kinds.map(k => [k, `${T[k].short} ${rows.filter(e => e.event === k).length}`])]
-        .map(([k, l]) => `<button class="f" data-k="${k}" aria-pressed="${k === filter}">${esc(l)}</button>`).join('') : '';
-
-    const shown = rows.filter(e => filter === 'all' || e.event === filter);
+    const shown = rows;
     document.getElementById('rows').innerHTML = shown.map(e => {
       const addr = [e.address, e.city].filter(Boolean).join(', ');
       const why = t.why[e.event] || '';
@@ -160,7 +183,8 @@ footer a{color:inherit}
         <div class="name">${esc(title(e))}</div>
         ${e.name ? `<div class="who">${esc(e.name)}</div>` : ''}
         ${addr ? `<div class="addr">${esc(addr)}</div>` : ''}
-        ${why ? `<p class="pitch"><strong>Why now</strong>${esc(why)}</p>` : ''}
+        <p class="story">${esc(story(e))}</p>
+        ${why ? `<p class="foryou"><strong>For you:</strong> ${esc(why)}</p>` : ''}
         ${askFor(e)}
         <details><summary>See the record</summary>
           <p>${esc(T[e.event].label)} · ${esc(e.stage)} · ${esc(fmt(e.date))}</p>
@@ -171,16 +195,15 @@ footer a{color:inherit}
     }).join('');
   }
 
-  document.getElementById('cats').addEventListener('click', e => {
-    const b = e.target.closest('.c'); if (!b) return;
-    const first = groups[b.dataset.g][0]; location.hash = first.slug;
-  });
-  document.getElementById('subs').addEventListener('click', e => {
-    const b = e.target.closest('.c'); if (b) location.hash = b.dataset.slug;
-  });
-  document.getElementById('filters').addEventListener('click', e => {
-    const b = e.target.closest('.f'); if (!b) return;
-    filter = b.dataset.k; route();
+  const sheet = document.getElementById('sheet');
+  const openSheet = () => { sheet.hidden = false; sheet.querySelector('[aria-current=true]')?.focus(); };
+  const closeSheet = () => { sheet.hidden = true; };
+  document.getElementById('me').addEventListener('click', openSheet);
+  document.getElementById('x').addEventListener('click', closeSheet);
+  sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+  document.getElementById('opts').addEventListener('click', e => {
+    const b = e.target.closest('.o'); if (!b) return; closeSheet(); location.hash = b.dataset.slug;
   });
 
   function route(){
@@ -188,7 +211,7 @@ footer a{color:inherit}
     draw(t);
     document.title = `${t.name} · Buying Window`;
   }
-  window.addEventListener('hashchange', () => { filter = 'all'; route(); window.scrollTo(0,0); });
+  window.addEventListener('hashchange', () => { route(); window.scrollTo(0,0); });
   route();
 })();
 </script>
