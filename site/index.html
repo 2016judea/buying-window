@@ -55,7 +55,8 @@ input[type=search]:focus{border-color:var(--accent)}
 .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
 .tag{font-size:13px;font-weight:600;color:var(--c)}
 .date{font-size:13px;color:var(--muted);white-space:nowrap}
-.name{font-weight:700;font-size:17px;margin:4px 0 0;overflow-wrap:anywhere}
+.name{font-weight:700;font-size:19px;margin:4px 0 0;overflow-wrap:anywhere}
+.who{font-weight:600;font-size:16px;margin:2px 0 0;overflow-wrap:anywhere}
 .addr{color:var(--ink);margin:2px 0 0}
 .stage{display:inline-block;background:var(--chip);border-radius:6px;font-size:13px;font-weight:600;padding:3px 8px;margin:8px 0 0}
 .why{font-size:14px;color:var(--muted);margin:8px 0 0}
@@ -142,13 +143,14 @@ footer a{color:inherit}
       `<button class="f" data-k="${k}" aria-pressed="${k === filter}">${esc(l)}</button>`).join('') : '';
     const shown = rows.filter(e => filter === 'all' || e.event === filter);
     document.getElementById('rows').innerHTML = shown.map(e => {
-      const title = e.name || e.address;
-      const addr = e.name ? [e.address, e.city].filter(Boolean).join(', ') : e.city;
+      const who = e.name || '';
+      const addr = [e.address, e.city].filter(Boolean).join(', ');
       const why = t.why[e.event] || '';
       return `<article class="row" style="--c:var(--t-${e.event})">
         <div class="top"><span class="tag">${esc(T[e.event].label)}${e.kind === 'Remodel' ? ' (remodel)' : ''}</span>
           <span class="date">${esc(fmt(e.date))}${e.date >= weekAgo ? '<span class="new">NEW</span>' : ''}</span></div>
-        <div class="name">${esc(title)}</div>
+        <div class="name">${esc(e.type)}</div>
+        ${who ? `<div class="who">${esc(who)}</div>` : ''}
         ${addr ? `<div class="addr">${esc(addr)}</div>` : ''}
         <span class="stage">${esc(e.stage)}</span>
         ${why ? `<p class="why">${esc(why)}</p>` : ''}

@@ -167,6 +167,60 @@ SEG_WORD = {"food": "restaurant, bar or café", "retail": "shop or storefront", 
             "office": "office", "other": "commercial space"}
 
 
+# What KIND of business is opening, the first thing a reader looks for. Ordered: first hit wins.
+BTYPES = [
+    (r"cannabis|dispensar|\bthc\b", "Cannabis dispensary"),
+    (r"adult day", "Adult day care"),
+    (r"assisted living|memory care|senior living", "Assisted living"),
+    (r"veterinar|animal hospital|\bpets?\b|\bdog|grooming", "Pet business"),
+    (r"child ?care|daycare|day care|preschool|montessori|early learning", "Child care center"),
+    (r"brewery|brewing|taproom|distill|winery", "Brewery or taproom"),
+    (r"bakery|bakehouse|donut|doughnut|patisserie", "Bakery"),
+    (r"coffee|espresso|\bcaf[eé]\b|tea house|boba", "Coffee shop or café"),
+    (r"fro ?yo|frozen yogurt|ice cream|gelato|creamery", "Dessert shop"),
+    (r"pizz", "Pizza place"),
+    (r"golf|\bputt|pickleball|bowling|arcade|billiard|axe throw|escape room|entertainment", "Entertainment venue"),
+    (r"cinema|theater|theatre|gallery", "Theater or gallery"),
+    (r"tavern|\bpub\b|saloon|lounge|sports bar|\bbar\b|cocktail|speakeasy", "Bar"),
+    (r"restaurant|grill|kitchen\b|diner|eatery|bistro|taqueria|tacos?\b|sushi|ramen|bbq|barbe?que|burger|cucina|"
+     r"cantina|gastro|cajun|antojitos|mexican|italian|ethiopian|thai\b|pho\b|noodle|deli\b|sandwich|chicken|wings|"
+     r"steak|food hall|food court|street food|cuisine", "Restaurant"),
+    (r"liquor store|liquors?\b|wine shop|bottle shop", "Liquor store"),
+    (r"tobacco|vape|vapor|smoke shop", "Tobacco or vape shop"),
+    (r"grocery|supermarket|mercado|market\b|halal|carniceria|food store|convenience", "Grocery or market"),
+    (r"fitness|\bgym\b|yoga|pilates|crossfit|boxing|martial|climbing|barre|cycle studio", "Gym or fitness studio"),
+    (r"salon|barber|\bhair\b|\bspa\b|nail|lash|brow|beauty|med ?spa|tattoo", "Salon or spa"),
+    (r"dental|dentist|orthodont", "Dental office"),
+    (r"clinic|medical|chiropract|physical therap|urgent care|optometr|pharmacy|dialysis|imaging|behavioral|therapy", "Clinic"),
+    (r"event (center|venue|space)|banquet|ballroom", "Event venue"),
+    (r"hotel|motel|\binn\b", "Hotel"),
+    (r"\bbank\b|credit union|wells fargo|us bank|chase bank", "Bank branch"),
+    (r"office|corporate|co-?working|state farm|insurance", "Office"),
+    (r"retail|store|shop|boutique|showroom|mercantile", "Shop"),
+]
+SEG_TYPE = {"food": "Restaurant or bar", "retail": "Shop", "care": "Clinic", "office": "Commercial space", "other": "Commercial space"}
+
+
+def btype(e: dict) -> str:
+    if e["event"] == "warn":
+        return "Employer closing" if e["stage"].startswith("Closing") else "Employer cutting jobs"
+    if e["event"] == "wrecking":
+        return "Office building coming down" if re.search(r"office", e["detail"], re.I) else "Commercial building coming down"
+    d = e["detail"] if e["event"] == "buildout" else ""
+    into = re.search(r"\b(?:into|convert(?:ed)? to) (?:an? )?(?:new )?(.{3,40})", d, re.I)  # "convert restaurant into a nail salon"
+    for text in (e["name"], into.group(1) if into else "", d):
+        for pat, label in BTYPES:
+            if text and re.search(pat, text, re.I):
+                return label
+    if re.search(r"kitchenette", d, re.I):
+        return "Commercial space"  # an office kitchenette is not a restaurant
+    if e["event"] == "first_inspection":
+        return "Restaurant" if e["segment"] == "food" else "Grocery or market"
+    if e["event"] == "liquor":
+        return "Restaurant or bar"
+    return SEG_TYPE.get(e["segment"], "Commercial space")
+
+
 def buildouts_and_wrecking() -> list[dict]:
     since = TODAY - dt.timedelta(days=WINDOW_DAYS)
     rows = q("CCS_Permits",
@@ -194,7 +248,7 @@ def buildouts_and_wrecking() -> list[dict]:
         if not BUILDOUT.search(c) or EXCL.search(c) or NOTRES.search(c):
             continue
         if re.search(r"school|classroom|hospital|police|fire station|church|manufactur|cultivation|parking ramp|"
-                     r"warehouse racking|bathroom|restroom|locker room|inspection only", c, re.I):
+                     r"warehouse racking|bathroom|restroom|locker room|inspection only|bedroom|religious", c, re.I):
             continue
         seg = segment(c)
         new = bool(NEW_TENANT.search(re.sub(r"(?i)\bno change of \w+", "", c)))
@@ -306,6 +360,7 @@ def main() -> None:
     for e in events:
         e["name"] = name_case(e["name"])
         e["by"] = name_case(e["by"])
+        e["type"] = btype(e)
 
     cbp = {t["naics"]: t for t in json.loads(CBP.read_text())["trades"]}
     trades = []
@@ -322,9 +377,9 @@ def main() -> None:
                            triggers=[[ev, segs] for ev, segs in t["triggers"]], count=len(rows)))
         buf = io.StringIO()
         w = csv.writer(buf)
-        w.writerow(["date", "what happened", "stage", "business", "address", "city", "details", "filed by", "source", "source link"])
+        w.writerow(["date", "type of business", "what happened", "stage", "business", "address", "city", "details", "filed by", "source", "source link"])
         for e in rows:
-            w.writerow([e["date"], TRIGGERS[e["event"]]["label"], e["stage"], e["name"], e["address"], e["city"],
+            w.writerow([e["date"], e["type"], TRIGGERS[e["event"]]["label"], e["stage"], e["name"], e["address"], e["city"],
                         e["detail"], e["by"], e["source"], e["source_url"]])
         (OUT / f"{slug}.csv").write_text(buf.getvalue())
 
