@@ -1,5 +1,7 @@
 # Buying Window
 
+**Live:** https://buying-window.vercel.app
+
 Pick what you sell. See the Minneapolis-area businesses that just started needing it.
 
 **Live:** https://buying-window.vercel.app
